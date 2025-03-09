@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net"
-	"strings"
+
+	"github.com/boxy-pug/httpfromtcp/internal/request"
 )
 
 func main() {
@@ -27,15 +26,25 @@ func main() {
 		if conn != nil {
 			fmt.Printf("Connection established\n")
 		}
-		ch := getLinesChannel(conn)
-		for line := range ch {
-			fmt.Printf("%s\n", line)
+		/*
+			ch := getLinesChannel(conn)
+			for line := range ch {
+				fmt.Printf("%s\n", line)
+			}
+		*/
+		request, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Printf("couldn't get request from reader")
 		}
+
+		fmt.Printf("- Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n", request.RequestLine.Method, request.RequestLine.RequestTarget, request.RequestLine.HttpVersion)
+
 		fmt.Printf("Connection has been closed\n")
 	}
 
 }
 
+/*
 func getLinesChannel(f io.ReadCloser) <-chan string {
 	ch := make(chan string)
 
@@ -75,3 +84,4 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 	return ch
 
 }
+*/
