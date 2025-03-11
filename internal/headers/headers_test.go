@@ -26,6 +26,14 @@ func TestParseHeaders(t *testing.T) {
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
 
+	// Test: Req line and then invalid host missing colon
+	headers = NewHeaders()
+	data = []byte("GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
 	// Test: Valid single header with extra whitespace
 	headers = NewHeaders()
 	data = []byte("    User-Agent: curl/7.81.0     \r\n\r\n")
@@ -70,17 +78,17 @@ func TestParseHeaders(t *testing.T) {
 	assert.Equal(t, "testing123, curl/7.81.0", headers["user-agent"])
 	assert.False(t, done)
 
-	/*
-		// Test: Valid 2 headers with existing headers
-		headers = NewHeaders()
-		data = []byte("Content-Type: text/html\r\nHost:localhost\r\n\r\n")
-		n, done, err = headers.Parse(data)
-		require.NoError(t, err)
-		assert.Equal(t, "text/html", headers["Content-Type"])
-		assert.Equal(t, "localhost", headers["Host"])
-		assert.Equal(t, 40, n) // Content-Type and Host headers plus CRLFs
-		assert.False(t, done)
-	*/
+	// Test: Valid 2 headers with existing headers
+	headers = map[string]string{"host": "localhost:42069"}
+	data = []byte("User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "curl/7.81.0", headers["user-agent"])
+	assert.Equal(t, 25, n)
+	assert.False(t, done)
+
 }
 
 func TestValidateHeaderKey(t *testing.T) {
@@ -91,4 +99,8 @@ func TestValidateHeaderKey(t *testing.T) {
 	str = "H©ŸÆst: localhost:42069"
 	res = validateHeaderKey(str)
 	assert.False(t, res)
+
+	str = "!#$%&'*+-.^_`|~"
+	res = validateHeaderKey(str)
+	assert.True(t, res)
 }

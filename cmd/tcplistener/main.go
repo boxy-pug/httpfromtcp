@@ -37,11 +37,19 @@ func main() {
 			fmt.Printf("couldn't get request from reader")
 		}
 
-		fmt.Printf("- Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n", request.RequestLine.Method, request.RequestLine.RequestTarget, request.RequestLine.HttpVersion)
+		printToConsole(request)
 
 		fmt.Printf("Connection has been closed\n")
 	}
 
+}
+
+func printToConsole(request *request.Request) {
+	fmt.Printf("- Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n", request.RequestLine.Method, request.RequestLine.RequestTarget, request.RequestLine.HttpVersion)
+	fmt.Println("Headers:")
+	for key, val := range request.Headers {
+		fmt.Printf("- %s: %s\n", key, val)
+	}
 }
 
 /*

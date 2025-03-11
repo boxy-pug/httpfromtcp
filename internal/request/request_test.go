@@ -130,3 +130,75 @@ func TestRequestLineChunks(t *testing.T) {
 
 	}
 }
+
+func TestRequestFromReader(t *testing.T) {
+	// Test: Standard Headers
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069", r.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", r.Headers["user-agent"])
+	assert.Equal(t, "*/*", r.Headers["accept"])
+
+	// Test: Nonsense not valid
+	reader = &chunkReader{
+		data:            "aølskjq48nyqcnhfdhnaewjkhd::MNijKJ",
+		numBytesPerRead: 30,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err)
+
+}
+
+// Additional test cases
+
+func TestEmptyHeaders(t *testing.T) {
+	// Test: Headers with empty values
+	reader := strings.NewReader("GET / HTTP/1.1\r\nHost:\r\nUser-Agent:\r\n\r\n")
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "", r.Headers["host"])
+	assert.Equal(t, "", r.Headers["user-agent"])
+}
+
+func TestDuplicateHeaders(t *testing.T) {
+	// Test: Duplicate Headers
+	reader := strings.NewReader("GET / HTTP/1.1\r\nHost: localhost\r\nHost: example.com\r\n\r\n")
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	// Assuming the parser keeps the last value for duplicate headers
+	assert.Equal(t, "localhost, example.com", r.Headers["host"])
+}
+
+func TestCaseInsensitiveHeaders(t *testing.T) {
+	// Test: Headers with mixed cases
+	reader := strings.NewReader("GET / HTTP/1.1\r\nhOsT: localhost\r\nUser-Agent: curl\r\nACCEPT: */*\r\n\r\n")
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost", r.Headers["host"])
+	assert.Equal(t, "curl", r.Headers["user-agent"])
+	assert.Equal(t, "*/*", r.Headers["accept"])
+}
+
+func TestMissingEndOfHeaders(t *testing.T) {
+	// Test: Missing end of headers (\r\n\r\n)
+	reader := strings.NewReader("GET / HTTP/1.1\r\nHost: localhost\r\nUser-Agent: curl\r\n")
+	// The reader does not have the final \r\n to indicate end of headers
+	_, err := RequestFromReader(reader)
+	require.Error(t, err)
+}
+
+func TestMalformedHeader(t *testing.T) {
+	// Test: Missing end of headers (\r\n\r\n)
+	reader := strings.NewReader("GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n")
+	// The reader does not have the final \r\n to indicate end of headers
+	_, err := RequestFromReader(reader)
+	require.Error(t, err)
+}

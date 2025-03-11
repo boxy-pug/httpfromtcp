@@ -50,15 +50,18 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	headerKeyLower := strings.ToLower(headerKey)
 
-	// fmt.Printf("Testprint: headerKey: %v\nheaderValue: %v\n", headerKey, headerValue)
-
-	if _, exists := h[headerKeyLower]; exists {
-		h[headerKeyLower] += fmt.Sprintf(", %s", headerValue)
-	} else {
-		h[headerKeyLower] = headerValue
-	}
+	// fmt.Printf("headerkey: %v, headerval: %v\n", headerKeyLower, headerValue)
+	h.Set(headerKeyLower, headerValue)
 
 	return bytesConsumed, false, nil
+}
+
+func (h Headers) Set(key, val string) {
+	if _, exists := h[key]; exists {
+		h[key] += fmt.Sprintf(", %s", val)
+	} else {
+		h[key] = val
+	}
 }
 
 func validateHeaderKey(key string) bool {
@@ -72,5 +75,5 @@ func validateHeaderKey(key string) bool {
 
 func isValidHeaderChar(r rune) bool {
 	// fmt.Printf("curchar as rune: %v and as str: %s\n", r, string(r))
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("!#$%&'*+-.^ _`|~", r) && r < 128
+	return (r < 128) && unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("!#$%&'*+-.^_`|~", r)
 }

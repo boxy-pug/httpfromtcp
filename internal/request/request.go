@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/boxy-pug/httpfromtcp/internal/headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
 	state       int
+	Headers     headers.Headers
 }
 
 type RequestLine struct {
@@ -22,6 +25,7 @@ type RequestLine struct {
 const (
 	stateInitialized = iota
 	stateDone
+	requestStateParsingHeaders
 )
 
 const bufferSize = 8 // Start with a small buffer to test chunking
@@ -142,6 +146,23 @@ func parseRequestLineElems(rl []string) (*RequestLine, error) {
 
 // The parse method processes a chunk of data
 func (r *Request) parse(data []byte) (int, error) {
+	totalBytesParsed := 0
+	for r.state != stateDone {
+		n, err := r.parseSingle(data[totalBytesParsed:])
+		if err != nil {
+			return totalBytesParsed, err
+		}
+		if n == 0 {
+			// no more data and no error means were done
+			break
+		}
+		totalBytesParsed += n
+		// ...
+	}
+	return totalBytesParsed, nil
+}
+
+func (r *Request) parseSingle(data []byte) (int, error) {
 	switch r.state {
 	case stateInitialized:
 		// Try to parse the request line from the current chunk
@@ -158,7 +179,28 @@ func (r *Request) parse(data []byte) (int, error) {
 
 		// Successfully parsed the request line
 		r.RequestLine = *requestLine
-		r.state = stateDone
+		r.state = requestStateParsingHeaders
+		return bytesConsumed, nil
+
+	case requestStateParsingHeaders:
+
+		// Create headers if they don't exist yet
+		if r.Headers == nil {
+			r.Headers = headers.NewHeaders()
+		}
+
+		// Parse using the existing headers object
+		bytesConsumed, done, err := r.Headers.Parse(data)
+		// fmt.Printf("Parse result: bytes=%d, done=%v, err=%v\n", bytesConsumed, done, err)
+		if err != nil {
+			return 0, err
+		}
+
+		// If we're done parsing headers, move to the next state
+		if done {
+			r.state = stateDone
+		}
+
 		return bytesConsumed, nil
 
 	case stateDone:
@@ -168,38 +210,3 @@ func (r *Request) parse(data []byte) (int, error) {
 		return 0, errors.New("error: unknown state")
 	}
 }
-
-/*
-type Request struct {
-    RequestLine RequestLine
-    state       int // Add this state tracker
-}
-
-// Constants for parser state
-const (
-    stateInitialized = iota
-    stateDone
-)
-
-// Update parseRequestLine to return number of bytes consumed
-func parseRequestLine(b []byte) (*RequestLine, int, error) {
-    // Look for \r\n in the data
-    // If not found, return 0, nil - need more data
-    // Otherwise, parse and return bytes consumed
-}
-
-// Add a new parse method
-func (r *Request) parse(data []byte) (int, error) {
-    // Handle based on state
-    // If initialized, try to parse request line
-    // If done, return error
-}
-
-// Rewrite RequestFromReader
-func RequestFromReader(reader io.Reader) (*Request, error) {
-    // Create buffer and request with initialized state
-    // Loop until done state or error
-    // Read in chunks, parse, handle buffer management
-}
-
-*/
