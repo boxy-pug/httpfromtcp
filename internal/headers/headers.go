@@ -77,3 +77,11 @@ func isValidHeaderChar(r rune) bool {
 	// fmt.Printf("curchar as rune: %v and as str: %s\n", r, string(r))
 	return (r < 128) && unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("!#$%&'*+-.^_`|~", r)
 }
+
+func (h Headers) Get(key string) string {
+	val, exists := h[strings.ToLower(key)]
+	if !exists {
+		return ""
+	}
+	return val
+}

@@ -50,6 +50,8 @@ func printToConsole(request *request.Request) {
 	for key, val := range request.Headers {
 		fmt.Printf("- %s: %s\n", key, val)
 	}
+	fmt.Println("Body:")
+	fmt.Println(string(request.Body))
 }
 
 /*

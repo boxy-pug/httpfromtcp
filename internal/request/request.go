@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/boxy-pug/httpfromtcp/internal/headers"
@@ -14,6 +15,7 @@ type Request struct {
 	RequestLine RequestLine
 	state       int
 	Headers     headers.Headers
+	Body        []byte
 }
 
 type RequestLine struct {
@@ -24,8 +26,9 @@ type RequestLine struct {
 
 const (
 	stateInitialized = iota
-	stateDone
 	requestStateParsingHeaders
+	stateParsingBody
+	stateDone
 )
 
 const bufferSize = 8 // Start with a small buffer to test chunking
@@ -198,10 +201,43 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 
 		// If we're done parsing headers, move to the next state
 		if done {
-			r.state = stateDone
+			r.state = stateParsingBody
 		}
 
 		return bytesConsumed, nil
+
+	case stateParsingBody:
+		//If there isn't a Content-Length header, move to the done state, nothing to parse
+		contentLength := r.Headers.Get("content-length")
+		var intContentLength int
+		var err error
+		if contentLength == "" {
+			r.state = stateDone
+			return 0, nil
+		} else {
+			intContentLength, err = strconv.Atoi(contentLength)
+			if err != nil {
+				return 0, errors.New("could not parse content length as int")
+			}
+		}
+
+		// Append all the data to the requests .Body field.
+		r.Body = append(r.Body, data...)
+
+		// If the length of the body is greater than the Content-Length header, return an error.
+		if len(r.Body) > intContentLength {
+			return 0, errors.New("body longer than content-length")
+		} else if len(r.Body) == intContentLength {
+			r.state = stateDone
+		}
+
+		return len(data), nil
+
+		/*Add a case for the new state in the state machine:
+
+		  If the length of the body is equal to the Content-Length header, move to the done state.
+		  Report that you've consumed the entire length of the data you were given
+		*/
 
 	case stateDone:
 		return 0, errors.New("error: trying to read data in a done state")
