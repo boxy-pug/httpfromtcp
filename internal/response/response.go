@@ -2,7 +2,6 @@ package response
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/boxy-pug/httpfromtcp/internal/headers"
@@ -16,18 +15,23 @@ const (
 	InternalError StatusCode = 500
 )
 
-// type Writer struct {}
+type Writer struct {
+	Headers    headers.Headers
+	StatusCode StatusCode
+	StatusLine []byte
+	Body       []byte
+}
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
 	switch statusCode {
 	case OK:
-		w.Write([]byte("HTTP/1.1 200 OK\r\n"))
+		w.StatusLine = []byte("HTTP/1.1 200 OK\r\n")
 	case BadRequest:
-		w.Write([]byte("HTTP/1.1 400 Bad Request\r\n"))
+		w.StatusLine = []byte("HTTP/1.1 400 Bad Request\r\n")
 	case InternalError:
-		w.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n"))
+		w.StatusLine = []byte("HTTP/1.1 500 Internal Server Error\r\n")
 	default:
-		w.Write([]byte("HTTP/1.1 XXX \r\n"))
+		w.StatusLine = []byte("HTTP/1.1 XXX \r\n")
 	}
 	return nil
 }
@@ -41,17 +45,33 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 	}
 }
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-
-	if len(headers) == 0 {
-		headers = GetDefaultHeaders(0)
-	}
-
-	for key, val := range headers {
-		byteLine := fmt.Sprintf("%s: %s\r\n", key, val)
-		w.Write([]byte(byteLine))
-	}
-	w.Write([]byte("\r\n"))
-
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	w.Headers = headers
 	return nil
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	w.Body = p
+	// Implementation here
+	return len(p), nil
+}
+
+func (w *Writer) AssembleResponse() []byte {
+	var resp []byte
+
+	// write statusline
+	resp = append(resp, w.StatusLine...)
+
+	// write headers
+	for key, val := range w.Headers {
+		headerLine := fmt.Sprintf("%s: %s\r\n", key, val)
+		resp = append(resp, []byte(headerLine)...)
+	}
+	resp = append(resp, []byte("\r\n")...)
+
+	// write body
+	resp = append(resp, w.Body...)
+
+	return resp
+
 }

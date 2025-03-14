@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net"
 
@@ -23,7 +21,7 @@ type HandlerError struct {
 	StatusCode response.StatusCode
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w *response.Writer, req *request.Request)
 
 // Creates a net.Listener and returns a new Server instance. Starts listening for requests inside a goroutine.
 func Serve(port int, h Handler) (*Server, error) {
@@ -86,39 +84,12 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 
-	var buf bytes.Buffer
+	// var buf bytes.Buffer
+	writer := &response.Writer{}
 
-	handlerErr := s.Handler(&buf, req)
-	if handlerErr != nil {
-		fmt.Fprintf(conn, "HTTP/1.1 %d %s\r\n\r\n%s", handlerErr.StatusCode, "Error", handlerErr.Message)
-		return
-	}
+	s.Handler(writer, req)
 
-	err = response.WriteStatusLine(conn, response.OK)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	defaultHeaders := response.GetDefaultHeaders(buf.Len())
-
-	// Write the HTTP response
-	err = response.WriteHeaders(conn, defaultHeaders)
-	if err != nil {
-		log.Printf("Error writing to connection: %v", err)
-		return
-	}
-	// Write the response body from the buffer
-	_, err = buf.WriteTo(conn) // Write the buffer's contents to the connection
-	if err != nil {
-		fmt.Printf("Error writing response body: %v\n", err)
-		return
-	}
+	// Write statusline
+	conn.Write(writer.AssembleResponse())
 
 }
-
-/*
-	response :=
-	//old def resp: "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
-	_, err := conn.Write([]byte(response))
-
-	}*/

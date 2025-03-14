@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
+	"github.com/boxy-pug/httpfromtcp/internal/headers"
 	"github.com/boxy-pug/httpfromtcp/internal/request"
+	"github.com/boxy-pug/httpfromtcp/internal/response"
 	"github.com/boxy-pug/httpfromtcp/internal/server"
 )
 
@@ -17,17 +18,64 @@ const port = 42069
 func main() {
 
 	// Instantiate your handler function
-	myHandler := func(w io.Writer, req *request.Request) *server.HandlerError {
+	myHandler := func(w *response.Writer, req *request.Request) {
 		// Check request path and handle appropriately
 		switch req.RequestLine.RequestTarget {
+		case "/":
+			body := `<html>
+  <head>
+    <title>200 OK</title>
+  </head>
+  <body>
+    <h1>Success!</h1>
+    <p>Your request was an absolute banger.</p>
+  </body>
+</html>`
+			w.WriteStatusLine(response.OK)
+			w.WriteHeaders(headers.Headers{
+				"Content-Type":   "text/html",
+				"Content-Length": strconv.Itoa(len(body)),
+			})
+			w.WriteBody([]byte(body))
+
 		case "/yourproblem":
-			return &server.HandlerError{StatusCode: 400, Message: "Your problem is not my problem\n"}
+			body := `<html>
+  <head>
+    <title>400 Bad Request</title>
+  </head>
+  <body>
+    <h1>Bad Request</h1>
+    <p>Your request honestly kinda sucked.</p>
+  </body>
+</html>`
+			w.WriteStatusLine(response.BadRequest)
+			w.WriteHeaders(headers.Headers{
+				"Content-Type":   "text/html",
+				"Content-Length": strconv.Itoa(len(body)),
+			})
+			w.WriteBody([]byte(body))
+
 		case "/myproblem":
-			return &server.HandlerError{StatusCode: 500, Message: "Woopsie, my bad\n"}
+			body := `<html>
+  <head>
+    <title>500 Internal Server Error</title>
+  </head>
+  <body>
+    <h1>Internal Server Error</h1>
+    <p>Okay, you know what? This one is on me.</p>
+  </body>
+</html>`
+			w.WriteStatusLine(response.InternalError)
+			w.WriteHeaders(headers.Headers{
+				"Content-Type":   "text/html",
+				"Content-Length": strconv.Itoa(len(body)),
+			})
+			w.WriteBody([]byte(body))
+
 		default:
 			// Write a default response to the writer
-			fmt.Fprint(w, "All good, frfr\n")
-			return nil
+			w.WriteStatusLine(response.BadRequest)
+			return
 		}
 	}
 
