@@ -64,6 +64,10 @@ func (h Headers) Set(key, val string) {
 	}
 }
 
+func (h Headers) Remove(key string) {
+	delete(h, key)
+}
+
 func validateHeaderKey(key string) bool {
 	for _, ch := range key {
 		if !isValidHeaderChar(ch) {
